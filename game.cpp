@@ -6,13 +6,13 @@
 #include <cstdlib>
 #include <fstream>
 #include <thread>
-#include <vector>
 #include <random>
 
-void Square::move(float delta_x, float delta_y) {
-    x += delta_x;
-    y += delta_y;
+bool between(float a, float b, float c) {
+    return b >= a && b <= c;
+}
 
+void Square::move(float delta_x, float delta_y) {
     for (int i = 0; i < len_vertices; i++) {
         // these are the x coordinates
         if (i % 3 == 0) {
@@ -30,7 +30,7 @@ void Square::move(float delta_x, float delta_y) {
 float Apple::rand_float() {
     std::random_device rd;
     std::mt19937 gen(rd());
-    std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
+    std::uniform_real_distribution<float> dist(-0.95f, 0.95f);
 
     float value = dist(gen);
     return value;
@@ -42,6 +42,30 @@ void Apple::draw() {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
 
     glDrawElements(GL_TRIANGLES, len_indices, GL_UNSIGNED_INT, 0);
+}
+
+void Apple::reset_vertices() {
+    float x_coord = Apple::rand_float();
+    float y_coord = Apple::rand_float();
+
+    vertices[0] = x_coord;
+    vertices[1] = y_coord;
+    vertices[2] = 0.0f;
+
+    vertices[3] = x_coord + SQUARE_SIDE_LEN;
+    vertices[4] = y_coord;
+    vertices[5] = 0.0f;
+
+    vertices[6] = x_coord;
+    vertices[7] = y_coord + SQUARE_SIDE_LEN;
+    vertices[8] = 0.0f;
+
+    vertices[9]  = x_coord + SQUARE_SIDE_LEN;
+    vertices[10] = y_coord + SQUARE_SIDE_LEN;
+    vertices[11] = 0.0f;
+
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glBufferData(GL_ARRAY_BUFFER, len_vertices * sizeof(float), vertices, GL_STATIC_DRAW);
 }
 
 
@@ -92,8 +116,13 @@ void Game::launch() {
         glUseProgram(shader_program);
         
         apple->draw();
-        snake->draw(VAOs, VBOs, EBOs);
+        snake->draw();
         snake->move();
+
+        if (snake->check_collision(apple)) {
+            apple->reset_vertices();
+            snake->grow();
+        }
         
         glfwSwapBuffers(window);
         glfwPollEvents();

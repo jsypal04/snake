@@ -44,6 +44,10 @@ int main() {
         std::cout << Apple::rand_float() << ' ';
     }
     std::cout << '\n';
+
+    float f1 = 0.34f;
+    float f2 = 0.34f;
+    float f3 = 1.25f;
 }
 
 

@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 project(snake)
 
+set(CMAKE_BUILD_TYPE Debug)
 include_directories(${CMAKE_SOURCE_DIR})
 
 add_executable(snake

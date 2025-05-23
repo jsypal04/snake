@@ -10,6 +10,8 @@
 #include <GLFW/glfw3.h>
 
 #define SQUARE_SIDE_LEN 0.03f
+#define VERT_SHADER_PATH "/home/sypalj/snake/glsl/vert_shader.glsl"
+#define FRAG_SHADER_PATH "/home/sypalj/snake/glsl/frag_shader.glsl"
 
 // Struct declarations to store game state (will be converted to json)
 struct coord {
@@ -30,18 +32,19 @@ struct game_state {
 };
 
 
+// Returns true if b is on the interval [a,c]
+bool between(float a, float b, float c);
+
+
 class Square {
 public:
     float* vertices;
     uint32_t* indices;
-    uint32_t len_vertices, len_indices, x, y;
+    uint32_t len_vertices, len_indices;
 
     Square(float x_coord, float y_coord) {
         len_vertices = 12;
         len_indices  = 6;
-
-        x = x_coord;
-        y = y_coord;
 
         vertices = new float[len_vertices];
         indices  = new uint32_t[len_indices];
@@ -69,7 +72,6 @@ public:
         indices[3] = 1;
         indices[4] = 2;
         indices[5] = 3;
-
     }
 
     ~Square() {
@@ -78,14 +80,27 @@ public:
     }
 
     void move(float delta_x, float delta_y);
+
+    float x() {
+        return vertices[0];
+    }
+
+    float y() {
+        return vertices[1];
+    }
 };
 
 
 class Apple : public Square {
 public:
-    GLuint VAO, VBO, EBO;
+    GLuint VAO, VBO, color_VBO, EBO;
+    float color_array[3];
 
     Apple(float x_coord, float y_coord) : Square(x_coord, y_coord) {
+        color_array[0] = 0.0f;
+        color_array[1] = 0.0f;
+        color_array[2] = 1.0f;
+
         glGenVertexArrays(1, &VAO);
         glBindVertexArray(VAO);
         
@@ -99,6 +114,13 @@ public:
 
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
         glEnableVertexAttribArray(0);
+
+        glGenBuffers(1, &color_VBO);
+        glBindBuffer(GL_ARRAY_BUFFER, color_VBO);
+        glBufferData(GL_ARRAY_BUFFER, 3 * sizeof(float), color_array, GL_STATIC_DRAW);
+
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(1);
     }
 
     ~Apple() {
@@ -122,9 +144,14 @@ public:
 
 class Snake {
 private:
-    const uint32_t init_snake_len = 3;
+    const uint32_t init_snake_len = 1;
 
 public:
+    std::vector<GLuint> VAOs;
+    std::vector<GLuint> VBOs;
+    std::vector<GLuint> EBOs;
+    uint32_t num_buffers;
+
     std::vector<Square*> squares;
     uint32_t length;
     char direction;
@@ -159,22 +186,22 @@ public:
     void gen_vertex_objs(std::vector<GLuint> &VAOs, std::vector<GLuint> &VBOs, std::vector<GLuint> &EBOs);
 
     // Writes data to the VAO and VBO
-    void draw(std::vector<GLuint> VAOs, std::vector<GLuint> VBOs, std::vector<GLuint> EBOs);
+    void draw();
 
     // Moves the snake one square forward in it's current direction
     void move();
 
-    bool check_collision();
+    // Returns true if the snake head overlaps with the square
+    bool check_collision(Square* square);
+
+    // Adds one square to the tail of the snake
+    void grow();
 };
 
 
 // Class to represent the game
 class Game {
 private:
-    std::vector<GLuint> VAOs;
-    std::vector<GLuint> VBOs;
-    std::vector<GLuint> EBOs;
-    uint32_t num_buffers;
     GLFWwindow* window;
     GLuint shader_program;
 
@@ -214,8 +241,8 @@ public:
         glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
 
-        std::string vert_shader_src = load_shader_src("glsl/vert_shader.glsl");
-        std::string frag_shader_src = load_shader_src("glsl/frag_shader.glsl");
+        std::string vert_shader_src = load_shader_src(VERT_SHADER_PATH);
+        std::string frag_shader_src = load_shader_src(FRAG_SHADER_PATH);
 
         const char* vert_shader_src_cstr = vert_shader_src.c_str();
         const char* frag_shader_src_cstr = frag_shader_src.c_str();
@@ -247,12 +274,12 @@ public:
 
         snake = new Snake(0.0f, 0.0f);
 
-        num_buffers = snake->length;
-        VAOs = std::vector<GLuint>(num_buffers);
-        VBOs = std::vector<GLuint>(num_buffers);
-        EBOs = std::vector<GLuint>(num_buffers);
+        snake->num_buffers = snake->length;
+        snake->VAOs = std::vector<GLuint>(snake->num_buffers);
+        snake->VBOs = std::vector<GLuint>(snake->num_buffers);
+        snake->EBOs = std::vector<GLuint>(snake->num_buffers);
 
-        snake->gen_vertex_objs(VAOs, VBOs, EBOs);
+        snake->gen_vertex_objs(snake->VAOs, snake->VBOs, snake->EBOs);
         apple = new Apple(Apple::rand_float(), Apple::rand_float());
     }
 
