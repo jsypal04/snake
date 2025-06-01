@@ -209,6 +209,8 @@ private:
     Apple* apple;
     struct game_state state;
 
+    pthread_t listener_thrd, sender_thrd;
+
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
         glViewport(0, 0, width, height);
     }
@@ -281,6 +283,8 @@ public:
 
         snake->gen_vertex_objs(snake->VAOs, snake->VBOs, snake->EBOs);
         apple = new Apple(Apple::rand_float(), Apple::rand_float());
+
+        connect_to_server();
     }
 
     ~Game() {
@@ -297,7 +301,11 @@ public:
 // Functions to handle networking:
     
     // Initializes a connection with the server
-    int connect_to_server();
+    void connect_to_server();
+
+    static void* listener(void* args);
+
+    static void* sender(void* args);
     
     // Writes the current game state to the server
     int write_state();
