@@ -2,3 +2,7 @@ build/
 lib/
 server/target/*
 Cargo.lock
+GLFW/*
+KHR/*
+glad/*
+glm/*
