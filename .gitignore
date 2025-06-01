@@ -6,3 +6,4 @@ GLFW/*
 KHR/*
 glad/*
 glm/*
+glad.c
