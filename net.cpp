@@ -3,7 +3,6 @@
 #include "env.hpp"
 #include <cstdio>
 #include <cstdlib>
-#include <fstream>
 #include <pthread.h>
 #include <string.h>
 #include <strings.h>
@@ -14,7 +13,7 @@
 #include <netinet/in.h>
 #include <netdb.h> 
 
-pthread_mutex_t state_mutex;
+pthread_mutex_t* state_mutex;
 
 void Game::connect_to_server() {
 
@@ -81,7 +80,9 @@ void* Game::sender(void* args) {
 
     while (true) {
         // lock state
+        pthread_mutex_lock(state_mutex);
         // serialize state
+
         // send state
         // unlock state
         // wait

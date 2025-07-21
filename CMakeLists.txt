@@ -10,6 +10,7 @@ add_executable(snake
     snake.cpp
     glad.c
     net.cpp
+    cjson_utils.cpp
 )
 
 target_link_libraries(snake

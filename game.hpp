@@ -6,6 +6,7 @@
 #include <iostream>
 #include <vector>
 
+#include "cjson.h"
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 
@@ -30,6 +31,12 @@ struct game_state {
     std::vector<struct snake> players;
     uint32_t num_players;
 };
+
+// FUNCTIONS TO TRANSLATE TO/FROM CJSON COMPATIBLE TYPES
+
+Map* to_map(struct game_state state);
+
+struct game_state from_map(Map* state);
 
 
 // Returns true if b is on the interval [a,c]
