@@ -1,14 +1,20 @@
 #include "game.hpp"
+#include "cjson.h"
+#include "env.hpp"
 #include <cstdio>
 #include <cstdlib>
+#include <fstream>
 #include <pthread.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 #include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h> 
+
+pthread_mutex_t state_mutex;
 
 void Game::connect_to_server() {
 
@@ -23,32 +29,7 @@ void Game::connect_to_server() {
 }
 
 void* Game::listener(void *args) {
-    const char* ENV = std::getenv("ENV");
-    const char* SERV_ADDR;
-    if (strcmp(ENV, "local") == 0) {
-        SERV_ADDR = std::getenv("LOCAL_SERVER_ADDR");
-    }
-    else if (strcmp(ENV, "remote") == 0) {
-        SERV_ADDR = std::getenv("REMOTE_SERVER_ADDR");
-    }
-    const char* PORT = std::getenv("PORT");
-
-    int sockfd, portno, n;
-    struct sockaddr_in serv_addr;
-    
-    portno = atoi(PORT);
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        perror("Error opening socket");
-        return NULL;
-    }
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = atoi(SERV_ADDR);
-    serv_addr.sin_port = portno;
-    if (connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
-        perror("Error connecting to server");
-        return NULL;
-    }
+    std::cout << "Listener thread started...\n";
 
     while (true) {
         // listen for packet
@@ -62,32 +43,41 @@ void* Game::listener(void *args) {
 }
 
 void* Game::sender(void* args) {
-    const char* ENV = std::getenv("ENV");
-    const char* SERV_ADDR;
-    if (strcmp(ENV, "local") == 0) {
-        SERV_ADDR = std::getenv("LOCAL_SERVER_ADDR");
-    }
-    else if (strcmp(ENV, "remote") == 0) {
-        SERV_ADDR = std::getenv("REMOTE_SERVER_ADDR");
-    }
-    const char* PORT = std::getenv("PORT");
+    std::cout << "Sender thread started...\n";
 
-    int sockfd, portno, n;
-    struct sockaddr_in serv_addr;
+    int sockfd, n;
+    struct sockaddr_in* serv_addr;
+    struct addrinfo hints{}, *server;
     
-    portno = atoi(PORT);
+    // create a socket
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
-        perror("Error opening socket");
-        return NULL;
+        std::cout << "ERROR: failed to open a socket.\n";
+        return (void*)1;
     }
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = atoi(SERV_ADDR);
-    serv_addr.sin_port = portno;
-    if (connect(sockfd, (struct sockaddr*) &serv_addr, sizeof(serv_addr)) < 0) {
-        perror("Error connecting to server");
-        return NULL;
+
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+
+    int err = getaddrinfo(LOCAL_SERVER_ADDR, nullptr, &hints, &server);
+    if (err != 0) {
+        std::cout << "ERROR: failed to resolve hostname.\n";
+        return (void*)1;
     }
+
+    // copy server address info into serv_addr
+    serv_addr = (struct sockaddr_in*)server->ai_addr;
+    serv_addr->sin_family = AF_INET;
+    serv_addr->sin_port = htons(PORT);
+
+    if (connect(sockfd, (struct sockaddr*)serv_addr, sizeof(*serv_addr)) < 0) {
+        std::cout << "ERROR: failed to open the socket.\n";
+        return (void*)1;
+    }
+
+    char buff[256] = "hello world\n";
+    n = write(sockfd, buff, strlen(buff));
+    std:: cout << "n: " << n << '\n';
 
     while (true) {
         // lock state
@@ -95,7 +85,16 @@ void* Game::sender(void* args) {
         // send state
         // unlock state
         // wait
+
+        usleep(16);
     }
 
     return NULL;
+}
+
+struct game_state Game::deserialize_state(std::string json_data) {
+    std::cout << "Running deserialize_state\n"; 
+    /* const char* c_json_data = json_data.c_str();
+    ObjectAST* ast_data = parse(c_json_data);
+    Map* data = traverse_obj(ast_data);*/
 }

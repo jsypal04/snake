@@ -22,8 +22,10 @@ add_executable(tests
     game.cpp
     snake.cpp
     glad.c
+    net.cpp
 )
 
 target_link_libraries(tests
     ${CMAKE_SOURCE_DIR}/lib/libglfw3.a
+    ${CMAKE_SOURCE_DIR}/lib/libcjson.a
 )

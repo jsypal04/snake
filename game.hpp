@@ -306,6 +306,10 @@ public:
     static void* listener(void* args);
 
     static void* sender(void* args);
+
+    std::string serialize_state(struct game_state state);
+
+    struct game_state deserialize_state(std::string json_data);
     
     // Writes the current game state to the server
     int write_state();

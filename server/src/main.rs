@@ -215,7 +215,7 @@ fn main() {
     loop {
         // Receive packet
         (n, src) = socket.recv_from(&mut buf).expect("Error reading data.");
-        // println!("Received packet:\n{:#?}", String::from_utf8(buf[..n].to_vec()).unwrap());
+        println!("Received packet:\n{:#?}", String::from_utf8(buf[..n].to_vec()).unwrap());
         
         // handle packet
         let resp_str = handle_packet(
