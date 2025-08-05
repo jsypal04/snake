@@ -21,7 +21,7 @@ struct coord {
 };
 
 struct snake {
-    std::vector<struct coord> coords; 
+    std::vector<struct coord> coords;
     uint32_t id;
 };
 
@@ -110,7 +110,7 @@ public:
 
         glGenVertexArrays(1, &VAO);
         glBindVertexArray(VAO);
-        
+
         glGenBuffers(1, &VBO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, len_vertices * sizeof(float), vertices, GL_STATIC_DRAW);
@@ -138,7 +138,7 @@ public:
         delete[] vertices;
         delete[] indices;
     }
-    
+
     static float rand_float();
 
     // Draws the vertices stored in VAO, VBO, and EBO
@@ -176,7 +176,7 @@ public:
     ~Snake() {
         for (int i = 0; i < squares.size(); i++) {
             delete squares[i];
-        } 
+        }
     }
 
     void print_snake() {
@@ -230,7 +230,7 @@ public:
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        
+
         window = glfwCreateWindow(800, 800, "Snake", NULL, NULL);
         if (window == NULL) {
             std::cout << "ERROR: Failed to create a window\n";
@@ -244,8 +244,8 @@ public:
             glfwTerminate();
             exit(1);
         }
-        
-        
+
+
         glViewport(0, 0, 800, 800);
         glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
@@ -274,7 +274,7 @@ public:
             exit(1);
         }
 
-        shader_program = glCreateProgram(); 
+        shader_program = glCreateProgram();
         glAttachShader(shader_program, vert_shader);
         glAttachShader(shader_program, frag_shader);
         glLinkProgram(shader_program);
@@ -303,10 +303,10 @@ public:
     bool check_shader_error(uint32_t shader);
 
     void launch();
-    
+
 
 // Functions to handle networking:
-    
+
     // Initializes a connection with the server
     void connect_to_server();
 
@@ -317,7 +317,7 @@ public:
     std::string serialize_state(struct game_state state);
 
     struct game_state deserialize_state(std::string json_data);
-    
+
     // Writes the current game state to the server
     int write_state();
 
