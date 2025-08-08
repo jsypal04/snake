@@ -71,16 +71,11 @@ struct game_state make_state() {
 // TESTS
 
 enum result state_to_map_test() {
-    std::cout << "Running state_to_map_test...\n";
-    std::cout << "Created game state...\n";
     struct game_state state = make_state();
-    std::cout << "Creating correct_map...\n";
     Map* correct_map = make_state_map();
 
-    std::cout << "Converting game state to map...\n";
     Map* state_map = to_map(state);
 
-    std::cout << "Comparing generated map and correct map...\n";
     if (map_cmp(state_map, correct_map)) {
         return PASSED;
     }
