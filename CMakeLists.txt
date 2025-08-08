@@ -24,6 +24,7 @@ add_executable(tests
     snake.cpp
     glad.c
     net.cpp
+    cjson_utils.cpp
 )
 
 target_link_libraries(tests

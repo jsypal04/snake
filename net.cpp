@@ -11,7 +11,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <netdb.h> 
+#include <netdb.h>
 
 pthread_mutex_t* state_mutex;
 
@@ -47,7 +47,7 @@ void* Game::sender(void* args) {
     int sockfd, n;
     struct sockaddr_in* serv_addr;
     struct addrinfo hints{}, *server;
-    
+
     // create a socket
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
@@ -94,7 +94,7 @@ void* Game::sender(void* args) {
 }
 
 struct game_state Game::deserialize_state(std::string json_data) {
-    std::cout << "Running deserialize_state\n"; 
+    std::cout << "Running deserialize_state\n";
     /* const char* c_json_data = json_data.c_str();
     ObjectAST* ast_data = parse(c_json_data);
     Map* data = traverse_obj(ast_data);*/

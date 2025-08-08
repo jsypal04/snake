@@ -1,6 +1,10 @@
 #ifndef CJSON_H
 #define CJSON_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -106,7 +110,7 @@ Map* load_file(const char* path);
 
 bool is_float(char* value);
 
-/* 
+/*
  * Serialize a C Map into a json string
  * */
 char* dump(Map* map);
@@ -117,9 +121,12 @@ char* dump(Map* map);
  * The `path` param sepecifies where the output directory of the file (must include the filename)
  *
  * A non zero return value indicates failure
- * 
+ *
  * NOTE: if a file already exists at the path, it will be overwritten!
  * */
 int dumpf(Map* map, const char* output_path);
 
+#ifdef __cplusplus
+}
+#endif
 #endif
