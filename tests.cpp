@@ -28,15 +28,15 @@ Map* make_state_map() {
 
         appendMap(&coords, c);
 
-        insertInt(&player, (char*)"id", 0);
         insertMapArray(&player, (char*)"coords", coords);
+        insertInt(&player, (char*)"id", 0);
 
         appendMap(&players, player);
     }
 
-    insertInt(&state_map, (char*)"num_players", num_players);
     insertMap(&state_map, (char*)"apple_location", apple_location);
     insertMapArray(&state_map, (char*)"players", players);
+    insertInt(&state_map, (char*)"num_players", num_players);
 
     return state_map;
 }
@@ -79,6 +79,11 @@ enum result state_to_map_test() {
     if (map_cmp(state_map, correct_map)) {
         return PASSED;
     }
+
+    std::cout << "\nCorrect Map:\n";
+    std::cout << dump(correct_map) << '\n';
+    std::cout << "\nGenerated Map:\n";
+    std::cout << dump(state_map) << '\n';
 
     return FAILED;
 }

@@ -103,6 +103,8 @@ bool arr_cmp(MapArray* arr1, MapArray* arr2);
 void printMap(Map* map);
 void printMapArray(MapArray* array);
 
+char** get_keys(Map* map);
+void destroy_keys_arr(char** keys, int length);
 /*
  * Functions to load json parsed by the parser into a Map
  * */
