@@ -36,7 +36,7 @@ struct game_state {
 
 Map* to_map(struct game_state state);
 
-struct game_state from_map(Map* state);
+struct game_state from_map(Map* state, int* error);
 
 
 // Returns true if b is on the interval [a,c]

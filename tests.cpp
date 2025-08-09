@@ -88,6 +88,39 @@ enum result state_to_map_test() {
     return FAILED;
 }
 
+enum result map_to_state_test() {
+    std::cout << '\n';
+    int error;
+
+    Map* state_map = make_state_map();
+    struct game_state correct_state = make_state();
+
+    struct game_state state = from_map(state_map, &error);
+
+    if (error != 0) {
+        std::cout << "error converting map to state\n";
+        return FAILED;
+    }
+
+    if (state.num_players != correct_state.num_players) {
+        std::cout << "state.num_players = " << state.num_players << '\n';
+        std::cout << "correct_state.num_players = " << correct_state.num_players << '\n';
+        return FAILED;
+    }
+
+    if (state.apple_location.x != correct_state.apple_location.x && state.apple_location.y != correct_state.apple_location.y) {
+        std::cout << "state.apple_location.x = " << state.apple_location.x << '\n';
+        std::cout << "correct_state.apple_location.x = " << correct_state.apple_location.x << '\n';
+        std::cout << "state.apple_location.y = " << state.apple_location.y << '\n';
+        std::cout << "correct_state.apple_location.y = " << correct_state.apple_location.y << '\n';
+        return FAILED;
+    }
+
+    // need to add more fail condition here for the players
+
+    return PASSED;
+}
+
 enum result snake_move_test_1() {
     Snake* snake = new Snake(0.0f, 0.0f);
     snake->move();
@@ -123,4 +156,5 @@ int main() {
     std::cout << "Snake::move() test 1: " << snake_move_test_1() << '\n';
     std::cout << "Snake::move() test 2: " << snake_move_test_2() << '\n';
     std::cout << "state_to_map_test: " << state_to_map_test() << '\n';
+    std::cout << "map_to_state_test: " << map_to_state_test() << '\n';
 }
