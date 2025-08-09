@@ -6,5 +6,5 @@ GLFW/*
 KHR/*
 glad/*
 glm/*
-./glad.c
 .env
+glad.c
