@@ -108,6 +108,7 @@ void destroy_keys_arr(char** keys, int length);
 /*
  * Functions to load json parsed by the parser into a Map
  * */
+Map* load(const char* data);
 Map* load_file(const char* path);
 
 bool is_float(char* value);

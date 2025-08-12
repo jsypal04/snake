@@ -82,6 +82,7 @@ void* Game::sender(void* args) {
         // lock state
         pthread_mutex_lock(state_mutex);
         // serialize state
+        std::string data = Game::serialize_state(state);
 
         // send state
         // unlock state
@@ -93,9 +94,23 @@ void* Game::sender(void* args) {
     return NULL;
 }
 
+std::string Game::serialize_state(struct game_state state) {
+   Map* map_state = to_map(state);
+   char* serialized_data = dump(map_state);
+   destroyMap(map_state);
+   return std::string(serialized_data);
+}
+
 struct game_state Game::deserialize_state(std::string json_data) {
-    std::cout << "Running deserialize_state\n";
-    /* const char* c_json_data = json_data.c_str();
-    ObjectAST* ast_data = parse(c_json_data);
-    Map* data = traverse_obj(ast_data);*/
+    struct game_state state;
+    int error;
+
+    Map* map_state = load(json_data.c_str());
+    state = from_map(map_state, &error);
+    if (error != 0) {
+        // return some error code
+    }
+
+    destroyMap(map_state);
+    return state;
 }
