@@ -16,6 +16,12 @@
 extern struct game_state state;
 pthread_mutex_t state_mutex;
 
+// Helper function to send data
+int send_state(std::string data, int sockfd) {
+    const char* c_str_data = data.c_str();
+    return write(sockfd, c_str_data, strlen(c_str_data));
+}
+
 void Game::connect_to_server() {
 
     if (pthread_create(&listener_thrd, NULL, listener, NULL) != 0) {
@@ -87,6 +93,7 @@ void* Game::sender(void* args) {
         std::cout << "State: " << data << '\n';
 
         // send state
+        n = send_state(data, sockfd);
         // unlock state
         pthread_mutex_unlock(&state_mutex);
         // wait
