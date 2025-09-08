@@ -13,7 +13,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 
-pthread_mutex_t* state_mutex;
+extern struct game_state state;
+pthread_mutex_t state_mutex;
 
 void Game::connect_to_server() {
 
@@ -80,12 +81,14 @@ void* Game::sender(void* args) {
 
     while (true) {
         // lock state
-        pthread_mutex_lock(state_mutex);
+        pthread_mutex_lock(&state_mutex);
         // serialize state
         std::string data = Game::serialize_state(state);
+        std::cout << "State: " << data << '\n';
 
         // send state
         // unlock state
+        pthread_mutex_unlock(&state_mutex);
         // wait
 
         usleep(16);
@@ -113,4 +116,36 @@ struct game_state Game::deserialize_state(std::string json_data) {
 
     destroyMap(map_state);
     return state;
+}
+
+
+void Game::update_game_state(Snake* snake, Apple* apple) {
+    int player_index = -1;
+    struct snake player;
+    std::vector<struct coord> coords;
+
+    for (int i = 0; i < snake->length; i++) {
+        coords.push_back({ .x = snake->squares[i]->x(), .y = snake->squares[i]->y()});
+    }
+    player.coords = coords;
+    player.id = snake->id;
+
+    pthread_mutex_lock(&state_mutex);
+
+    state.apple_location = { .x = apple->x(), .y = apple->y() };
+    for (int i = 0; i < state.num_players; i++) {
+        if (state.players[i].id == snake->id) {
+            player_index = i;
+        }
+    }
+
+    if (player_index < 0) {
+        state.players.push_back(player);
+        state.num_players++;
+    } else {
+        state.players.erase(state.players.begin() + player_index);
+        state.players.push_back(player);
+    }
+
+    pthread_mutex_unlock(&state_mutex);
 }
