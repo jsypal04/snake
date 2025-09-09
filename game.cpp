@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <pthread.h>
 #include <thread>
 #include <random>
 #include <vector>
@@ -207,6 +208,9 @@ void Game::launch() {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(40));
     }
+
+    pthread_cancel(sender_thrd);
+    pthread_cancel(listener_thrd);
 }
 
 std::string Game::load_shader_src(std::string path) {

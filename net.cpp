@@ -23,7 +23,6 @@ int send_state(std::string data, int sockfd) {
 }
 
 void Game::connect_to_server() {
-
     if (pthread_create(&listener_thrd, NULL, listener, NULL) != 0) {
         perror("Failed to create thread");
         exit(1);
@@ -80,10 +79,6 @@ void* Game::sender(void* args) {
         std::cout << "ERROR: failed to open the socket.\n";
         return (void*)1;
     }
-
-    char buff[256] = "hello world\n";
-    n = write(sockfd, buff, strlen(buff));
-    std:: cout << "n: " << n << '\n';
 
     while (true) {
         // lock state
