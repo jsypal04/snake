@@ -11,6 +11,7 @@ add_executable(snake
     glad.c
     net.cpp
     cjson_utils.cpp
+    test_utils.cpp
 )
 
 target_link_libraries(snake
@@ -25,6 +26,7 @@ add_executable(tests
     glad.c
     net.cpp
     cjson_utils.cpp
+    test_utils.cpp
 )
 
 target_link_libraries(tests

@@ -2,6 +2,7 @@
 #define GAME_HPP
 
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <vector>
@@ -35,6 +36,8 @@ struct game_state {
 // FUNCTIONS TO TRANSLATE TO/FROM CJSON COMPATIBLE TYPES
 
 Map* to_map(struct game_state state);
+
+Map* snake_to_map(struct snake snake);
 
 struct game_state from_map(Map* state, int* error);
 
@@ -173,6 +176,11 @@ public:
         }
         length = init_snake_len;
         direction = 'w';
+
+        auto now = std::chrono::system_clock::now();
+        id = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            now.time_since_epoch()
+        ).count();
     }
 
     ~Snake() {
@@ -217,6 +225,8 @@ private:
     Snake* snake;
     Apple* apple;
 
+    uint32_t my_id;
+
     pthread_t listener_thrd, sender_thrd;
 
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
@@ -249,6 +259,8 @@ public:
     static void* sender(void* args);
 
     static std::string serialize_state(struct game_state state);
+
+    static std::string serialize_player(struct snake player);
 
     static struct game_state deserialize_state(std::string json_data);
 

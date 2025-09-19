@@ -1,6 +1,8 @@
 # Snake
 ---
 
+NOTE: I need to fix a memory leak in CJSON
+
 This game is a multiplayer snake game. The idea is basically to have a worse slither.io.
 
 I wanted to implement it pretty much from scratch so right now there is a client that works, but a lot of the internals still need to be written.

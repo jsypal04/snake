@@ -1,6 +1,8 @@
 #include "game.hpp"
 #include "cjson.h"
 #include "env.hpp"
+#include <cassert>
+#include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <pthread.h>
@@ -16,20 +18,27 @@
 extern struct game_state state;
 pthread_mutex_t state_mutex;
 
+// Testing functions
+extern bool brackets_match(std::string data);
+
 // Helper function to send data
 int send_state(std::string data, int sockfd) {
-    const char* c_str_data = data.c_str();
+    std::string data_with_token = std::string("token_goes_here\n") + data;
+    const char* c_str_data = data_with_token.c_str();
     return write(sockfd, c_str_data, strlen(c_str_data));
 }
 
 void Game::connect_to_server() {
+    uint32_t* my_id_heap = (uint32_t*)malloc(sizeof(uint32_t));
+    *my_id_heap = my_id;
+
     if (pthread_create(&listener_thrd, NULL, listener, NULL) != 0) {
         perror("Failed to create thread");
         exit(1);
     }
-    if (pthread_create(&sender_thrd, NULL, sender, NULL) != 0) {
-        perror("Failed to create thread");
-        exit(1);
+    if (pthread_create(&sender_thrd, NULL, sender, my_id_heap) != 0) {
+       perror("Failed to create thread");
+       exit(1);
     }
 }
 
@@ -49,6 +58,8 @@ void* Game::listener(void *args) {
 
 void* Game::sender(void* args) {
     std::cout << "Sender thread started...\n";
+
+    uint32_t my_id = *(uint32_t*)args;
 
     int sockfd, n;
     struct sockaddr_in* serv_addr;
@@ -84,8 +95,20 @@ void* Game::sender(void* args) {
         // lock state
         pthread_mutex_lock(&state_mutex);
         // serialize state
-        std::string data = Game::serialize_state(state);
-        std::cout << "State: " << data << '\n';
+        int index = -1;
+        for (int i = 0; i < state.num_players; i++) {
+            if (state.players[i].id == my_id) {
+                index = i;
+                break;
+            }
+        }
+        
+        assert(index >= 0);
+
+        std::string data = Game::serialize_player(state.players[index]);
+        std::cout << "Player Location: " << data << '\n';
+
+        assert(brackets_match(data));
 
         // send state
         n = send_state(data, sockfd);
@@ -95,15 +118,27 @@ void* Game::sender(void* args) {
 
         usleep(16);
     }
+    free(args);
 
     return NULL;
 }
 
+std::string Game::serialize_player(struct snake player) {
+    Map* player_map = snake_to_map(player);
+    char* serialized_data = dump(player_map);
+    destroyMap(player_map);
+    std::string serialized_data_cpp = std::string(serialized_data);
+    free(serialized_data);
+    return serialized_data_cpp;
+}
+
 std::string Game::serialize_state(struct game_state state) {
-   Map* map_state = to_map(state);
-   char* serialized_data = dump(map_state);
-   destroyMap(map_state);
-   return std::string(serialized_data);
+    Map* map_state = to_map(state);
+    char* serialized_data = dump(map_state);
+    destroyMap(map_state);
+    std::string serialized_data_cpp = std::string(serialized_data);
+    free(serialized_data);
+    return std::string(serialized_data);
 }
 
 struct game_state Game::deserialize_state(std::string json_data) {

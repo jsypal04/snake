@@ -140,7 +140,8 @@ Game::Game() {
     float apple_y = Apple::rand_float();
     apple = new Apple(apple_x, apple_y);
 
-    snake->print_snake();
+    my_id = snake->id;
+
     update_game_state(snake, apple);
 
     connect_to_server();
