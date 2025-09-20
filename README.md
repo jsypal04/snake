@@ -24,8 +24,12 @@ Disclaimer: I only test on Ubuntu, I can not guarentee that this will work on an
 # Dependencies
 ---
 
-This project requires cjson, a library I wrote to serialize/deserialize json. Install it as follows.
+Building this project requires the following dependencies:
+1. GLFW
+2. GLAD
+3. CJSON
 
+CJSON is a custom JSON serialization and deserialization library written in C. Follow these instructions add it as a dependency.
 1. Clone [the cjson repo](https://github.com/jsypal04/cjson)
 2. Run `mkdir build`
 3. Run `./build.sh -clean`
