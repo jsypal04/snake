@@ -5,8 +5,12 @@
 #include <cstdint>
 #include <cstdlib>
 #include <fstream>
+#include <pthread.h>
 #include <thread>
 #include <random>
+#include <vector>
+
+struct game_state state;
 
 bool between(float a, float b, float c) {
     return b >= a && b <= c;
@@ -68,6 +72,80 @@ void Apple::reset_vertices() {
     glBufferData(GL_ARRAY_BUFFER, len_vertices * sizeof(float), vertices, GL_STATIC_DRAW);
 }
 
+Game::Game() {
+    glfwInit();
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    window = glfwCreateWindow(800, 800, "Snake", NULL, NULL);
+    if (window == NULL) {
+        std::cout << "ERROR: Failed to create a window\n";
+        glfwTerminate();
+        exit(1);
+    }
+
+    glfwMakeContextCurrent(window);
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+        std::cout << "Failed to initialize GLAD\n";
+        glfwTerminate();
+        exit(1);
+    }
+
+
+    glViewport(0, 0, 800, 800);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+
+    std::string vert_shader_src = load_shader_src(VERT_SHADER_PATH);
+    std::string frag_shader_src = load_shader_src(FRAG_SHADER_PATH);
+
+    const char* vert_shader_src_cstr = vert_shader_src.c_str();
+    const char* frag_shader_src_cstr = frag_shader_src.c_str();
+
+    GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
+    GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+
+    glShaderSource(vert_shader, 1, &vert_shader_src_cstr, NULL);
+    glShaderSource(frag_shader, 1, &frag_shader_src_cstr, NULL);
+
+    glCompileShader(vert_shader);
+    glCompileShader(frag_shader);
+
+    if (check_shader_error(vert_shader)) {
+        glfwTerminate();
+        exit(1);
+    }
+    if (check_shader_error(frag_shader)) {
+        glfwTerminate();
+        exit(1);
+    }
+
+    shader_program = glCreateProgram();
+    glAttachShader(shader_program, vert_shader);
+    glAttachShader(shader_program, frag_shader);
+    glLinkProgram(shader_program);
+    glDeleteShader(vert_shader);
+    glDeleteShader(frag_shader);
+
+    snake = new Snake(0.0f, 0.0f);
+
+    snake->num_buffers = snake->length;
+    snake->VAOs = std::vector<GLuint>(snake->num_buffers);
+    snake->VBOs = std::vector<GLuint>(snake->num_buffers);
+    snake->EBOs = std::vector<GLuint>(snake->num_buffers);
+
+    snake->gen_vertex_objs(snake->VAOs, snake->VBOs, snake->EBOs);
+    float apple_x = Apple::rand_float();
+    float apple_y = Apple::rand_float();
+    apple = new Apple(apple_x, apple_y);
+
+    my_id = snake->id;
+
+    update_game_state(snake, apple);
+
+    connect_to_server();
+}
 
 void Game::process_input(GLFWwindow* window) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
@@ -79,7 +157,7 @@ void Game::process_input(GLFWwindow* window) {
         }
 
         snake->direction = 'e';
-        
+
     }
     else if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
         if (snake->direction == 'e') {
@@ -114,7 +192,7 @@ void Game::launch() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shader_program);
-        
+
         apple->draw();
         snake->draw();
         snake->move();
@@ -123,12 +201,17 @@ void Game::launch() {
             apple->reset_vertices();
             snake->grow();
         }
-        
+
+        update_game_state(snake, apple);
+
         glfwSwapBuffers(window);
         glfwPollEvents();
 
         std::this_thread::sleep_for(std::chrono::milliseconds(40));
     }
+
+    pthread_cancel(sender_thrd);
+    pthread_cancel(listener_thrd);
 }
 
 std::string Game::load_shader_src(std::string path) {
@@ -152,7 +235,7 @@ std::string Game::load_shader_src(std::string path) {
 bool Game::check_shader_error(GLuint shader) {
     int32_t success;
     char infoLog[512];
-    
+
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(shader, 512, NULL, infoLog);

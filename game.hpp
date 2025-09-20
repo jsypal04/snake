@@ -2,10 +2,12 @@
 #define GAME_HPP
 
 #include <cassert>
+#include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <vector>
 
+#include "cjson.h"
 #include "glad/glad.h"
 #include <GLFW/glfw3.h>
 
@@ -20,7 +22,7 @@ struct coord {
 };
 
 struct snake {
-    std::vector<struct coord> coords; 
+    std::vector<struct coord> coords;
     uint32_t id;
 };
 
@@ -30,6 +32,14 @@ struct game_state {
     std::vector<struct snake> players;
     uint32_t num_players;
 };
+
+// FUNCTIONS TO TRANSLATE TO/FROM CJSON COMPATIBLE TYPES
+
+Map* to_map(struct game_state state);
+
+Map* snake_to_map(struct snake snake);
+
+struct game_state from_map(Map* state, int* error);
 
 
 // Returns true if b is on the interval [a,c]
@@ -103,7 +113,7 @@ public:
 
         glGenVertexArrays(1, &VAO);
         glBindVertexArray(VAO);
-        
+
         glGenBuffers(1, &VBO);
         glBindBuffer(GL_ARRAY_BUFFER, VBO);
         glBufferData(GL_ARRAY_BUFFER, len_vertices * sizeof(float), vertices, GL_STATIC_DRAW);
@@ -131,7 +141,7 @@ public:
         delete[] vertices;
         delete[] indices;
     }
-    
+
     static float rand_float();
 
     // Draws the vertices stored in VAO, VBO, and EBO
@@ -156,6 +166,8 @@ public:
     uint32_t length;
     char direction;
 
+    uint32_t id;
+
     Snake(float x, float y) {
         squares = std::vector<Square*>();
         for (int i = 0; i < init_snake_len; i++) {
@@ -164,12 +176,17 @@ public:
         }
         length = init_snake_len;
         direction = 'w';
+
+        auto now = std::chrono::system_clock::now();
+        id = std::chrono::duration_cast<std::chrono::nanoseconds>(
+            now.time_since_epoch()
+        ).count();
     }
 
     ~Snake() {
         for (int i = 0; i < squares.size(); i++) {
             delete squares[i];
-        } 
+        }
     }
 
     void print_snake() {
@@ -207,7 +224,10 @@ private:
 
     Snake* snake;
     Apple* apple;
-    struct game_state state;
+
+    uint32_t my_id;
+
+    pthread_t listener_thrd, sender_thrd;
 
     static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
         glViewport(0, 0, width, height);
@@ -215,90 +235,35 @@ private:
 
     void process_input(GLFWwindow* window);
 
+    void update_game_state(Snake* snake, Apple* apple);
+
 public:
-    Game() {
-        glfwInit();
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-        glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-        glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-        
-        window = glfwCreateWindow(800, 800, "Snake", NULL, NULL);
-        if (window == NULL) {
-            std::cout << "ERROR: Failed to create a window\n";
-            glfwTerminate();
-            exit(1);
-        }
+    Game();
 
-        glfwMakeContextCurrent(window);
-        if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
-            std::cout << "Failed to initialize GLAD\n";
-            glfwTerminate();
-            exit(1);
-        }
-        
-        
-        glViewport(0, 0, 800, 800);
-        glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-
-
-        std::string vert_shader_src = load_shader_src(VERT_SHADER_PATH);
-        std::string frag_shader_src = load_shader_src(FRAG_SHADER_PATH);
-
-        const char* vert_shader_src_cstr = vert_shader_src.c_str();
-        const char* frag_shader_src_cstr = frag_shader_src.c_str();
-
-        GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
-        GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-
-        glShaderSource(vert_shader, 1, &vert_shader_src_cstr, NULL);
-        glShaderSource(frag_shader, 1, &frag_shader_src_cstr, NULL);
-
-        glCompileShader(vert_shader);
-        glCompileShader(frag_shader);
-
-        if (check_shader_error(vert_shader)) {
-            glfwTerminate();
-            exit(1);
-        }
-        if (check_shader_error(frag_shader)) {
-            glfwTerminate();
-            exit(1);
-        }
-
-        shader_program = glCreateProgram(); 
-        glAttachShader(shader_program, vert_shader);
-        glAttachShader(shader_program, frag_shader);
-        glLinkProgram(shader_program);
-        glDeleteShader(vert_shader);
-        glDeleteShader(frag_shader);
-
-        snake = new Snake(0.0f, 0.0f);
-
-        snake->num_buffers = snake->length;
-        snake->VAOs = std::vector<GLuint>(snake->num_buffers);
-        snake->VBOs = std::vector<GLuint>(snake->num_buffers);
-        snake->EBOs = std::vector<GLuint>(snake->num_buffers);
-
-        snake->gen_vertex_objs(snake->VAOs, snake->VBOs, snake->EBOs);
-        apple = new Apple(Apple::rand_float(), Apple::rand_float());
-    }
-
-    ~Game() {
-        glfwTerminate();
-    }
+    ~Game() { glfwTerminate(); }
 
     std::string load_shader_src(std::string path);
 
     bool check_shader_error(uint32_t shader);
 
     void launch();
-    
+
 
 // Functions to handle networking:
-    
+
     // Initializes a connection with the server
-    int connect_to_server();
-    
+    void connect_to_server();
+
+    static void* listener(void* args);
+
+    static void* sender(void* args);
+
+    static std::string serialize_state(struct game_state state);
+
+    static std::string serialize_player(struct snake player);
+
+    static struct game_state deserialize_state(std::string json_data);
+
     // Writes the current game state to the server
     int write_state();
 

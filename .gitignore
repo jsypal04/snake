@@ -6,4 +6,6 @@ GLFW/*
 KHR/*
 glad/*
 glm/*
+.env
 glad.c
+cjson.h

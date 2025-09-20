@@ -1,15 +1,8 @@
 use std::net::{SocketAddr, UdpSocket};
-use std::time::{SystemTime, UNIX_EPOCH};
-use std::panic;
 use serde::{Serialize, Deserialize};
 
 // If a connection does not respond in 33msec (~double the sending frequency) it is removed from the connections table
-const CONN_TIMEOUT: u128 = 33;
-
-enum ServerAction {
-    Get,
-    Push,
-}
+const CONN_TIMEOUT: u128 = 30;
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Coord {
@@ -19,7 +12,7 @@ struct Coord {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Snake {
-    id: u32,
+    id: i32,
     coords: Vec<Coord>, 
 }
 
@@ -29,17 +22,17 @@ struct GameState {
     players: Vec<Snake>,
 }
 
+#[derive(Debug)]
 struct Conn {
-    conn_id: u32,
-    snake_id: u32,
+    snake_id: i32,
     addr: SocketAddr,
     ttl: u128,
-    creation_time: u128,
 }
 
 struct Connections {
     conns: Vec<Conn>,
 }
+
 impl Connections {
     fn contains(&self, src: &SocketAddr) -> bool {
         if self.conns.len() == 0 {
@@ -58,15 +51,13 @@ impl Connections {
         self.conns.push(conn);
     }
 
-    fn connect(&mut self, addr: &SocketAddr) {
+    fn connect(&mut self, addr: &SocketAddr, snake_id: &i32) {
         if !self.contains(addr) {
             // println!("Adding {} to connections table.", addr);
             let conn = Conn {
-                conn_id: 10,
-                snake_id: 11,
+                snake_id: *snake_id,
                 addr: *addr,
                 ttl: CONN_TIMEOUT,
-                creation_time: get_now(),
             };
             self.push(conn);
         }
@@ -83,7 +74,7 @@ impl Connections {
     }
 
     fn broadcast(&self, socket: &UdpSocket, state: &GameState) {
-        let json_data = serde_json::to_string(&state).unwrap();
+        let json_data = serde_json::to_string(state).unwrap(); // TODO: Error handling here
         // println!("{json_data}");
         
         // println!();
@@ -96,45 +87,58 @@ impl Connections {
     fn update_ttls(&mut self) {
         let mut addrs_to_remove: Vec<SocketAddr> = vec![];
         for conn in self.conns.iter_mut() {
-            let new_ttl = panic::catch_unwind(|| {
-                CONN_TIMEOUT - (get_now() - conn.creation_time)
-            });
+            let new_ttl = conn.ttl - 1;
             
-            match new_ttl {
-                Ok(ttl) => conn.ttl = ttl,
-                Err(_)  => addrs_to_remove.push(conn.addr),
+            if new_ttl == 0 {
+                addrs_to_remove.push(conn.addr);
+            }
+            else {
+                conn.ttl = new_ttl;
             }
         }
 
         for addr in addrs_to_remove.iter() {
+            println!("Disconnecting {addr}...");
             self.disconnect(*addr);
         }
     }
 
     fn update_state(
         &self, 
-        snake_id: &u32,
-        state: &mut GameState, 
+        snake_id: &i32,
+        state: &mut GameState,
         new_coords: Vec<Coord>
     ) {
-        let mut index: usize = 0;
+        if state.players.len() == 0 {
+        }
+
+        let mut index: Option<usize> = None;
         for (i, snake) in state.players.iter().enumerate() {
             if snake.id == *snake_id {
-                index = i;
+                index = Some(i);
             }
         }
-        state.players[index].coords = new_coords;     
+        
+        match index {
+            Some(index) => state.players[index].coords = new_coords,
+            None => {
+                let player = Snake {
+                    id: *snake_id,
+                    coords: new_coords, 
+                };
+                state.players.push(player);
+            },
+        };
     }
 }
 
-fn get_now() -> u128 {
+/* fn get_now() -> u128 {
     let now = SystemTime::now();
-    let milis = now
-        .duration_since(UNIX_EPOCH)
-        .expect("Time went backwards")
-        .as_millis();
-    milis
-}
+    now
+    .duration_since(UNIX_EPOCH)
+    .expect("Time went backwards")
+    .as_millis()
+}*/
 
 fn handle_packet(
     addr: SocketAddr, 
@@ -142,40 +146,44 @@ fn handle_packet(
     connections: &mut Connections,
     state: &mut GameState,
 ) -> String {
-    let mut action = ServerAction::Get;
     let mut data: Option<Snake> = None;
     let lines: Vec<&str> = packet.lines().collect();
     for (i, val) in lines.iter().enumerate() {
         if i == 0 {
-            match *val {
-                "GET" => action = ServerAction::Get,
-                "PUSH" => action = ServerAction::Push,
-                _    => return String::from("401"), 
-            }
-        }
-        else if i == 1 {
             // println!("Authentication step.");
+            continue;
         }
-        else {
-            match action {
-                ServerAction::Get => continue,
-                ServerAction::Push => data = serde_json::from_slice(val.as_bytes()).unwrap(),
+        let result = serde_json::from_slice(val.as_bytes());
+        data = match result {
+            Ok(val) => val,
+            Err(err) => {
+                println!("Error decoding packet: {err}, value: {val}");
+                return String::from("404");
             }
         }
     }
+
+    let snake_data = data.unwrap(); // TODO: Error handling here
     
     if !connections.contains(&addr) {
         // authenticate client
-        connections.connect(&addr);
+        println!("Connecting {addr}...");
+        connections.connect(&addr, &snake_data.id);
+        for con in connections.conns.iter() {
+            println!("{con:#?}");
+        }
     }
 
-    match action {
-        ServerAction::Get  => println!("Get action received"),
-        ServerAction::Push => {
-            let snake_data = data.unwrap();
-            connections.update_state(&snake_data.id, state, snake_data.coords)
-        },
+    connections.update_state(&snake_data.id, state, snake_data.coords);
+
+    // set ttl to CONN_TIMEOUT
+    for conn in connections.conns.iter_mut() {
+        if conn.snake_id == snake_data.id {
+            conn.ttl = CONN_TIMEOUT;
+            break;
+        }
     }
+
     return String::from("200");
 }
 
@@ -207,7 +215,10 @@ fn main() {
     let mut connections = Connections {
         conns: Vec::new(),
     };
-    let mut state = create_dummy_state();
+    let mut state = GameState {
+        apple_location: Coord { x: 0.0, y: 0.0 },
+        players: vec![],
+    };
 
     let mut buf = [0; 1024];
     let mut src: SocketAddr;
@@ -215,14 +226,15 @@ fn main() {
     loop {
         // Receive packet
         (n, src) = socket.recv_from(&mut buf).expect("Error reading data.");
+        // TODO: Error handling for the line below
         // println!("Received packet:\n{:#?}", String::from_utf8(buf[..n].to_vec()).unwrap());
-        
+
         // handle packet
         let resp_str = handle_packet(
-            src, 
-            String::from_utf8(buf[0..n].to_vec()).unwrap(), // TODO: need to handle errors here.
-            &mut connections,
-            &mut state,
+           src, 
+           String::from_utf8(buf[0..n].to_vec()).unwrap(), // TODO: need to handle errors here.
+           &mut connections,
+           &mut state,
         );
         let response = resp_str.as_bytes();
         let _ = socket.send_to(response, src);
@@ -232,6 +244,8 @@ fn main() {
 
         // update connection ttls
         connections.update_ttls(); 
+
+        // println!("x: {}, y: {}", state.players[0].coords[0].x, state.players[0].coords[0].y);
     }
 }
 

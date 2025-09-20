@@ -1,14 +1,130 @@
+#include "cjson.h"
 #include "game.hpp"
+
+const int num_players = 3;
 
 enum result {
     PASSED,
     FAILED,
 };
 
+// HELPER FUNCTIONS:
+
+Map* make_state_map() {
+    Map* state_map = initMap(3);
+    Map* apple_location = initMap(2);
+    MapArray* players = initMapArray(num_players);
+
+    insertFloat(&apple_location, (char*)"x", 0.0f);
+    insertFloat(&apple_location, (char*)"y", 0.0f);
+
+    for (int i = 0; i < num_players; i++) {
+        Map* player = initMap(2);
+        MapArray* coords = initMapArray(1);
+        Map* c = initMap(2);
+
+        insertFloat(&c, (char*)"x", 1.0f);
+        insertFloat(&c, (char*)"y", 1.0f);
+
+        appendMap(&coords, c);
+
+        insertMapArray(&player, (char*)"coords", coords);
+        insertInt(&player, (char*)"id", 0);
+
+        appendMap(&players, player);
+    }
+
+    insertMap(&state_map, (char*)"apple_location", apple_location);
+    insertMapArray(&state_map, (char*)"players", players);
+    insertInt(&state_map, (char*)"num_players", num_players);
+
+    return state_map;
+}
+
+struct game_state make_state() {
+
+    struct game_state state;
+    struct coord apple_location;
+    apple_location.x = 0.0f;
+    apple_location.y = 0.0f;
+    std::vector<struct snake> players;
+    for (int i = 0; i < num_players; i++) {
+        std::vector<struct coord> coords;
+        struct coord c;
+        struct snake player;
+
+        c.x = 1.0f;
+        c.y = 1.0f;
+        coords.push_back(c);
+        player.coords = coords;
+        player.id = 0;
+        players.push_back(player);
+    }
+
+    state.apple_location = apple_location;
+    state.num_players = num_players;
+    state.players = players;
+
+    return state;
+}
+
+// TESTS
+
+enum result state_to_map_test() {
+    struct game_state state = make_state();
+    Map* correct_map = make_state_map();
+
+    Map* state_map = to_map(state);
+
+    if (map_cmp(state_map, correct_map)) {
+        return PASSED;
+    }
+
+    std::cout << "\nCorrect Map:\n";
+    std::cout << dump(correct_map) << '\n';
+    std::cout << "\nGenerated Map:\n";
+    std::cout << dump(state_map) << '\n';
+
+    return FAILED;
+}
+
+enum result map_to_state_test() {
+    std::cout << '\n';
+    int error;
+
+    Map* state_map = make_state_map();
+    struct game_state correct_state = make_state();
+
+    struct game_state state = from_map(state_map, &error);
+
+    if (error != 0) {
+        std::cout << "error converting map to state\n";
+        return FAILED;
+    }
+
+    if (state.num_players != correct_state.num_players) {
+        std::cout << "state.num_players = " << state.num_players << '\n';
+        std::cout << "correct_state.num_players = " << correct_state.num_players << '\n';
+        return FAILED;
+    }
+
+    if (state.apple_location.x != correct_state.apple_location.x && state.apple_location.y != correct_state.apple_location.y) {
+        std::cout << "state.apple_location.x = " << state.apple_location.x << '\n';
+        std::cout << "correct_state.apple_location.x = " << correct_state.apple_location.x << '\n';
+        std::cout << "state.apple_location.y = " << state.apple_location.y << '\n';
+        std::cout << "correct_state.apple_location.y = " << correct_state.apple_location.y << '\n';
+        return FAILED;
+    }
+
+    // need to add more fail condition here for the players
+
+    return PASSED;
+}
+
 enum result snake_move_test_1() {
     Snake* snake = new Snake(0.0f, 0.0f);
     snake->move();
-    
+
     Snake* correct_snake = new Snake(-0.03f, 0.0f);
 
     if (snake->equals(correct_snake)) {
@@ -39,15 +155,6 @@ enum result snake_move_test_2() {
 int main() {
     std::cout << "Snake::move() test 1: " << snake_move_test_1() << '\n';
     std::cout << "Snake::move() test 2: " << snake_move_test_2() << '\n';
-
-    for (int i = 0; i < 10; i++) {
-        std::cout << Apple::rand_float() << ' ';
-    }
-    std::cout << '\n';
-
-    float f1 = 0.34f;
-    float f2 = 0.34f;
-    float f3 = 1.25f;
+    std::cout << "state_to_map_test: " << state_to_map_test() << '\n';
+    std::cout << "map_to_state_test: " << map_to_state_test() << '\n';
 }
-
-
