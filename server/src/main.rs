@@ -1,5 +1,6 @@
 use std::net::{SocketAddr, UdpSocket};
 use serde::{Serialize, Deserialize};
+use rand::Rng;
 
 // If a connection does not respond in 33msec (~double the sending frequency) it is removed from the connections table
 const CONN_TIMEOUT: u128 = 30;
@@ -140,6 +141,18 @@ impl Connections {
     .as_millis()
 }*/
 
+fn gen_apple_coords() -> Coord {
+    let mut rng = rand::rng();
+
+    let x: f32 = rng.random_range(-1.0..=0.97);
+    let y: f32 = rng.random_range(-1.0..=0.97);
+
+    Coord {
+        x: x,
+        y: y,
+    }
+}
+
 fn handle_packet(
     addr: SocketAddr, 
     packet: String, 
@@ -216,7 +229,7 @@ fn main() {
         conns: Vec::new(),
     };
     let mut state = GameState {
-        apple_location: Coord { x: 0.0, y: 0.0 },
+        apple_location: gen_apple_coords(),
         players: vec![],
     };
 
