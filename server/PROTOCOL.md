@@ -9,8 +9,11 @@ This document defines the protocol between the client and the server. It is buil
 All packets must be in the following format:
 
 Authentication token
+
 Player coordinate data (json format)
+
 Apple collision detected (Y/N)
+
 Other player collision detected (Y/N)
 
 # Basics
