@@ -39,7 +39,7 @@ Follow these steps to build snake from source.
 1. Clone this repo.
 2. Copy `libcjson.a` to the `lib` directory
 3. Copy `cjson.h` to `.`
-4. Run ./start.sh (this should start the client):w
+4. Run ./start.sh (this should start the client)
 
 To run the server navigate to the server dir and run `cargo run`.
 
