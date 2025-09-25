@@ -18,8 +18,14 @@ struct Snake {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+struct Apple {
+    id: i32,
+    location: Coord,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 struct GameState {
-    apple_location: Coord,
+    apple: Apple,
     players: Vec<Snake>,
 }
 
@@ -27,6 +33,7 @@ struct GameState {
 struct Conn {
     snake_id: i32,
     addr: SocketAddr,
+    listener_port: i32,
     ttl: u128,
 }
 
@@ -52,12 +59,13 @@ impl Connections {
         self.conns.push(conn);
     }
 
-    fn connect(&mut self, addr: &SocketAddr, snake_id: &i32) {
+    fn connect(&mut self, addr: &SocketAddr, listener_port: i32, snake_id: &i32) {
         if !self.contains(addr) {
             // println!("Adding {} to connections table.", addr);
             let conn = Conn {
                 snake_id: *snake_id,
                 addr: *addr,
+                listener_port: listener_port,
                 ttl: CONN_TIMEOUT,
             };
             self.push(conn);
@@ -144,12 +152,9 @@ impl Connections {
 fn gen_apple_coords() -> Coord {
     let mut rng = rand::rng();
 
-    let x: f32 = rng.random_range(-1.0..=0.97);
-    let y: f32 = rng.random_range(-1.0..=0.97);
-
     Coord {
-        x: x,
-        y: y,
+        x: rng.random_range(-1.0..=0.97),
+        y: rng.random_range(-1.0..=0.97),
     }
 }
 
@@ -159,20 +164,38 @@ fn handle_packet(
     connections: &mut Connections,
     state: &mut GameState,
 ) -> String {
+    let mut client_listener_port: i32;
     let mut data: Option<Snake> = None;
+    let mut apple_collision_detected = false;
+
     let lines: Vec<&str> = packet.lines().collect();
     for (i, val) in lines.iter().enumerate() {
         if i == 0 {
             // println!("Authentication step.");
-            continue;
-        }
-        let result = serde_json::from_slice(val.as_bytes());
-        data = match result {
-            Ok(val) => val,
-            Err(err) => {
-                println!("Error decoding packet: {err}, value: {val}");
-                return String::from("404");
-            }
+        } else if i == 1 {
+            client_listener_port = match val.parse::<i32>() {
+                Ok(port) => port,
+                Err(err) => {
+                    println!("Error extracting listener port {err}\n");
+                    return String::from("402");
+                }
+            };
+
+            
+        } else if i == 2 {
+            let result = serde_json::from_slice(val.as_bytes());
+            data = match result {
+                Ok(val) => val,
+                Err(err) => {
+                    println!("Error decoding packet: {err}, value: {val}");
+                    return String::from("402");
+                }
+            };
+        } else if i == 3 {
+            apple_collision_detected = match *val {
+                "Y" => true,
+                _   => false,
+            };
         }
     }
 
@@ -181,13 +204,19 @@ fn handle_packet(
     if !connections.contains(&addr) {
         // authenticate client
         println!("Connecting {addr}...");
-        connections.connect(&addr, &snake_data.id);
+        connections.connect(&addr, client_listener_port, &snake_data.id);
         for con in connections.conns.iter() {
             println!("{con:#?}");
         }
     }
 
     connections.update_state(&snake_data.id, state, snake_data.coords);
+
+    // Re-generate apple coords
+    if apple_collision_detected {
+        state.apple.id += 1;
+        state.apple.location = gen_apple_coords();
+    }
 
     // set ttl to CONN_TIMEOUT
     for conn in connections.conns.iter_mut() {
@@ -217,19 +246,25 @@ fn create_dummy_state() -> GameState {
     }
 
     GameState { 
-        apple_location: apple_loc,
+        apple: Apple {
+            id: 0,
+            location: apple_loc,
+        },
         players: players,
     }
 } // --------------- end test function --------------------
 
 
 fn main() {
-    let socket = UdpSocket::bind("127.0.0.1:8000").unwrap();
+    let socket = UdpSocket::bind("0.0.0.0:8000").unwrap();
     let mut connections = Connections {
         conns: Vec::new(),
     };
     let mut state = GameState {
-        apple_location: gen_apple_coords(),
+        apple: Apple {
+            id: 0,
+            location: gen_apple_coords(),
+        },
         players: vec![],
     };
 

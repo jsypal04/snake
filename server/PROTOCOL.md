@@ -10,6 +10,8 @@ All packets must be in the following format:
 
 Authentication token
 
+Listener Port
+
 Player coordinate data (json format)
 
 Apple collision detected (Y/N)
@@ -50,5 +52,5 @@ connect or tell the server that it is disconnecting.
 The server returns one of the following response codes:
 1. 200 - Indicates success
 2. 401 - Authentication failed
-3. 402 - Issue decoding player coordinate data
+3. 402 - Issue decoding packet
 

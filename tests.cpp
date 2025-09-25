@@ -61,7 +61,11 @@ struct game_state make_state() {
         players.push_back(player);
     }
 
-    state.apple_location = apple_location;
+    struct apple apple;
+    apple.id = 0;
+    apple.location = apple_location;
+
+    state.apple = apple;
     state.num_players = num_players;
     state.players = players;
 
@@ -108,11 +112,11 @@ enum result map_to_state_test() {
         return FAILED;
     }
 
-    if (state.apple_location.x != correct_state.apple_location.x && state.apple_location.y != correct_state.apple_location.y) {
-        std::cout << "state.apple_location.x = " << state.apple_location.x << '\n';
-        std::cout << "correct_state.apple_location.x = " << correct_state.apple_location.x << '\n';
-        std::cout << "state.apple_location.y = " << state.apple_location.y << '\n';
-        std::cout << "correct_state.apple_location.y = " << correct_state.apple_location.y << '\n';
+    if (state.apple.location.x != correct_state.apple.location.y != correct_state.apple.location.y) {
+        std::cout << "state.apple.location.x = " << state.apple.location.x << '\n';
+        std::cout << "correct_state.apple.location.x = " << correct_state.apple.location.x << '\n';
+        std::cout << "state.apple.location.y = " << state.apple.location.y << '\n';
+        std::cout << "correct_state.apple.location.y = " << correct_state.apple.location.y << '\n';
         return FAILED;
     }
 

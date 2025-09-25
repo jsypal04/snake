@@ -7,6 +7,7 @@ if [[ $1 == "--clean" ]] then
     cmake --build build
     ./build/snake
 else
-    cmake --build build
-    ./build/snake
+    if cmake --build build; then
+        ./build/snake
+    fi
 fi

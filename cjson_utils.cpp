@@ -21,10 +21,20 @@ Map* snake_to_map(struct snake snake) {
     return snake_map;
 }
 
+Map* apple_to_map(struct apple apple) {
+    Map* apple_map = initMap(2);
+    Map* location = coord_to_map(apple.location);
+
+    insertInt(&apple_map, (char*)"id", apple.id);
+    insertMap(&apple_map, (char*)"location", location);
+
+    return apple_map;
+}
+
 Map* to_map(struct game_state state) {
     Map* map_state = initMap(3);
 
-    insertMap(&map_state, (char*)"apple_location", coord_to_map(state.apple_location));
+    insertMap(&map_state, (char*)"apple", apple_to_map(state.apple));
 
     MapArray* players = initMapArray(state.num_players);
     for (int i = 0; i < state.num_players; i++) {
@@ -165,7 +175,7 @@ struct game_state from_map(Map* state_map, int* error) {
     destroyMap(state_map);
 
     state.num_players = num_players;
-    state.apple_location = apple_location;
+    state.apple.location = apple_location;
     state.players = players;
 
     return state;

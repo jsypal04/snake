@@ -26,9 +26,13 @@ struct snake {
     uint32_t id;
 };
 
+struct apple {
+    uint32_t id;
+    struct coord location;
+};
 
 struct game_state {
-    struct coord apple_location;
+    struct apple apple;
     std::vector<struct snake> players;
     uint32_t num_players;
 };
@@ -38,6 +42,8 @@ struct game_state {
 Map* to_map(struct game_state state);
 
 Map* snake_to_map(struct snake snake);
+
+Map* apple_to_map(struct apple apple);
 
 struct game_state from_map(Map* state, int* error);
 

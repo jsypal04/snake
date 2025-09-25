@@ -45,8 +45,42 @@ void Game::connect_to_server() {
 void* Game::listener(void *args) {
     std::cout << "Listener thread started...\n";
 
+    int sockfd, n;
+    struct sockaddr_in serv_addr;
+    struct addrinfo hints{}, *server;
+
+    // create a socket
+    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd < 0) {
+        std::cout << "ERROR: failed to open a socket.\n";
+        return (void*)1;
+    }
+
+    memset(&serv_addr, 0, sizeof(serv_addr));
+
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_addr.s_addr = INADDR_ANY;
+    serv_addr.sin_port = htons(CLIENT_LISTENING_PORT);
+
+    if (bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+        std::cout << "ERROR: failed to bind socket to address and port\n";
+        return (void*)1;
+    }
+
+    char buffer[LISTENER_BUFFER_SIZE];
+    struct sockaddr_in client_addr;
+    socklen_t addr_len = sizeof(client_addr);
+
     while (true) {
         // listen for packet
+        n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0, (struct sockaddr*)&client_addr, &addr_len);
+        if (n < 0) {
+            std::cout << "ERROR: bad packet received from server.\n";
+            break;
+        }
+
+        printf("%s", buffer);
+
         // deserialize packet
         // lock state
         // update state
@@ -106,7 +140,7 @@ void* Game::sender(void* args) {
         assert(index >= 0);
 
         std::string data = Game::serialize_player(state.players[index]);
-        std::cout << "Player Location: " << data << '\n';
+        // std::cout << "Player Location: " << data << '\n';
 
         assert(brackets_match(data));
 
@@ -169,7 +203,10 @@ void Game::update_game_state(Snake* snake, Apple* apple) {
 
     pthread_mutex_lock(&state_mutex);
 
-    state.apple_location = { .x = apple->x(), .y = apple->y() };
+    if (apple != NULL) {
+        state.apple.location = { .x = apple->x(), .y = apple->y() };
+    }
+
     for (int i = 0; i < state.num_players; i++) {
         if (state.players[i].id == snake->id) {
             player_index = i;

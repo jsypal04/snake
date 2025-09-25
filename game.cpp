@@ -136,9 +136,10 @@ Game::Game() {
     snake->EBOs = std::vector<GLuint>(snake->num_buffers);
 
     snake->gen_vertex_objs(snake->VAOs, snake->VBOs, snake->EBOs);
-    float apple_x = Apple::rand_float();
-    float apple_y = Apple::rand_float();
-    apple = new Apple(apple_x, apple_y);
+    apple = NULL;
+    // float apple_x = Apple::rand_float();
+    // float apple_y = Apple::rand_float();
+    // apple = new Apple(apple_x, apple_y);
 
     my_id = snake->id;
 
@@ -188,18 +189,24 @@ void Game::launch() {
     while (!glfwWindowShouldClose(window)) {
         process_input(window);
 
+
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shader_program);
 
-        apple->draw();
+        if (apple != NULL) {
+            apple->draw();
+        }
+
         snake->draw();
         snake->move();
 
-        if (snake->check_collision(apple)) {
-            apple->reset_vertices();
-            snake->grow();
+        if (apple != NULL) {
+            if (snake->check_collision(apple)) {
+                apple->reset_vertices();
+                snake->grow();
+            }
         }
 
         update_game_state(snake, apple);
