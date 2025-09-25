@@ -14,9 +14,11 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <semaphore.h>
 
 extern struct game_state state;
 pthread_mutex_t state_mutex;
+sem_t arg_read_sem;
 
 // Testing functions
 extern bool brackets_match(std::string data);
@@ -29,57 +31,85 @@ int send_state(std::string data, int sockfd) {
 }
 
 void Game::connect_to_server() {
-    uint32_t* my_id_heap = (uint32_t*)malloc(sizeof(uint32_t));
-    *my_id_heap = my_id;
 
-    if (pthread_create(&listener_thrd, NULL, listener, NULL) != 0) {
-        perror("Failed to create thread");
-        exit(1);
-    }
-    if (pthread_create(&sender_thrd, NULL, sender, my_id_heap) != 0) {
-       perror("Failed to create thread");
-       exit(1);
-    }
-}
-
-void* Game::listener(void *args) {
-    std::cout << "Listener thread started...\n";
-
-    int sockfd, n;
-    struct sockaddr_in serv_addr;
+    int sockfd;
+    struct sockaddr_in* serv_addr;
     struct addrinfo hints{}, *server;
 
     // create a socket
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
         std::cout << "ERROR: failed to open a socket.\n";
-        return (void*)1;
+        return;
     }
 
-    memset(&serv_addr, 0, sizeof(serv_addr));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
 
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(CLIENT_LISTENING_PORT);
-
-    if (bind(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
-        std::cout << "ERROR: failed to bind socket to address and port\n";
-        return (void*)1;
+    int err = getaddrinfo(LOCAL_SERVER_ADDR, nullptr, &hints, &server);
+    if (err != 0) {
+        std::cout << "ERROR: failed to resolve hostname.\n";
+        return;
     }
 
+    // copy server address info into serv_addr
+    serv_addr = (struct sockaddr_in*)server->ai_addr;
+    serv_addr->sin_family = AF_INET;
+    serv_addr->sin_port = htons(PORT);
+
+    if (connect(sockfd, (struct sockaddr*)serv_addr, sizeof(*serv_addr)) < 0) {
+       std::cout << "ERROR: failed to open the socket.\n";
+       return;
+    }
+
+    int* args = (int*)malloc(2 * sizeof(int));
+    args[0] = my_id;
+    args[1] = sockfd;
+
+    if (sem_init(&arg_read_sem, 0, 0) != 0) {
+        std::cout << "Failed to init semaphore\n";
+        return;
+    }
+
+    if (pthread_create(&listener_thrd, NULL, listener, args) != 0) {
+        perror("Failed to create thread");
+        exit(1);
+    }
+    if (pthread_create(&sender_thrd, NULL, sender, args) != 0) {
+       perror("Failed to create thread");
+       exit(1);
+    }
+
+    sem_wait(&arg_read_sem);
+    sem_wait(&arg_read_sem);
+    sem_destroy(&arg_read_sem);
+    
+    free(args);
+}
+
+void* Game::listener(void *args) {
+    std::cout << "Listener thread started...\n";
+
+    int* args_arr = (int*)args;
+    int my_id = args_arr[0];
+    int sockfd = args_arr[1];
+
+    std::cout << "Posting to semaphore from listener...\n";
+    sem_post(&arg_read_sem);
+
+    int n;
     char buffer[LISTENER_BUFFER_SIZE];
-    struct sockaddr_in client_addr;
-    socklen_t addr_len = sizeof(client_addr);
 
     while (true) {
         // listen for packet
-        n = recvfrom(sockfd, buffer, sizeof(buffer) - 1, 0, (struct sockaddr*)&client_addr, &addr_len);
+        n = read(sockfd, buffer, strlen(buffer));
         if (n < 0) {
-            std::cout << "ERROR: bad packet received from server.\n";
-            break;
+            std::cout << "Error receiving packet from server\n";
+        } else if (n == 0) {
+            continue;
         }
 
-        printf("%s", buffer);
+        std::cout << "n = " << n <<'\n';
 
         // deserialize packet
         // lock state
@@ -90,40 +120,18 @@ void* Game::listener(void *args) {
     return NULL;
 }
 
+
 void* Game::sender(void* args) {
     std::cout << "Sender thread started...\n";
 
-    uint32_t my_id = *(uint32_t*)args;
+    int* arg_arr = (int*)args;
+    int my_id = arg_arr[0];
+    int sockfd = arg_arr[1];
 
-    int sockfd, n;
-    struct sockaddr_in* serv_addr;
-    struct addrinfo hints{}, *server;
+    std::cout << "Posting to semaphore from sender...\n";
+    sem_post(&arg_read_sem);
 
-    // create a socket
-    sockfd = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockfd < 0) {
-        std::cout << "ERROR: failed to open a socket.\n";
-        return (void*)1;
-    }
-
-    hints.ai_family = AF_INET;
-    hints.ai_socktype = SOCK_DGRAM;
-
-    int err = getaddrinfo(LOCAL_SERVER_ADDR, nullptr, &hints, &server);
-    if (err != 0) {
-        std::cout << "ERROR: failed to resolve hostname.\n";
-        return (void*)1;
-    }
-
-    // copy server address info into serv_addr
-    serv_addr = (struct sockaddr_in*)server->ai_addr;
-    serv_addr->sin_family = AF_INET;
-    serv_addr->sin_port = htons(PORT);
-
-    if (connect(sockfd, (struct sockaddr*)serv_addr, sizeof(*serv_addr)) < 0) {
-        std::cout << "ERROR: failed to open the socket.\n";
-        return (void*)1;
-    }
+    int n;
 
     while (true) {
         // lock state
@@ -146,6 +154,9 @@ void* Game::sender(void* args) {
 
         // send state
         n = send_state(data, sockfd);
+        if (n < 0) {
+            std::cout << "Error sending packets to server\n";
+        }
         // unlock state
         pthread_mutex_unlock(&state_mutex);
         // wait

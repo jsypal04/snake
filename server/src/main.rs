@@ -33,7 +33,6 @@ struct GameState {
 struct Conn {
     snake_id: i32,
     addr: SocketAddr,
-    listener_port: i32,
     ttl: u128,
 }
 
@@ -59,13 +58,12 @@ impl Connections {
         self.conns.push(conn);
     }
 
-    fn connect(&mut self, addr: &SocketAddr, listener_port: i32, snake_id: &i32) {
+    fn connect(&mut self, addr: &SocketAddr, snake_id: &i32) {
         if !self.contains(addr) {
             // println!("Adding {} to connections table.", addr);
             let conn = Conn {
                 snake_id: *snake_id,
                 addr: *addr,
-                listener_port: listener_port,
                 ttl: CONN_TIMEOUT,
             };
             self.push(conn);
@@ -164,7 +162,6 @@ fn handle_packet(
     connections: &mut Connections,
     state: &mut GameState,
 ) -> String {
-    let mut client_listener_port: i32;
     let mut data: Option<Snake> = None;
     let mut apple_collision_detected = false;
 
@@ -173,16 +170,6 @@ fn handle_packet(
         if i == 0 {
             // println!("Authentication step.");
         } else if i == 1 {
-            client_listener_port = match val.parse::<i32>() {
-                Ok(port) => port,
-                Err(err) => {
-                    println!("Error extracting listener port {err}\n");
-                    return String::from("402");
-                }
-            };
-
-            
-        } else if i == 2 {
             let result = serde_json::from_slice(val.as_bytes());
             data = match result {
                 Ok(val) => val,
@@ -191,7 +178,7 @@ fn handle_packet(
                     return String::from("402");
                 }
             };
-        } else if i == 3 {
+        } else if i == 2 {
             apple_collision_detected = match *val {
                 "Y" => true,
                 _   => false,
@@ -204,7 +191,7 @@ fn handle_packet(
     if !connections.contains(&addr) {
         // authenticate client
         println!("Connecting {addr}...");
-        connections.connect(&addr, client_listener_port, &snake_data.id);
+        connections.connect(&addr, &snake_data.id);
         for con in connections.conns.iter() {
             println!("{con:#?}");
         }
@@ -285,6 +272,7 @@ fn main() {
            &mut state,
         );
         let response = resp_str.as_bytes();
+        println!("Sending packet: {response:#?}");
         let _ = socket.send_to(response, src);
 
         // broadcast state if changed
